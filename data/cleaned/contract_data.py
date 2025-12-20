@@ -16,7 +16,8 @@ def clean_numeric_columns(df, cols):
 
 
 def clean_contract(df):
-    # drop columns safely and filter out OL positions
+    if 'Pos.' in df.columns:
+        df = df.rename(columns={'Pos.': 'Pos'})
     df.drop(columns=["Total Value", "Total\nGuaranteed", "Avg.\nGuarantee/Year", "% Guaranteed"], inplace=True, errors='ignore')
     drop = ['RT', 'RG', 'C', 'LG', 'LT']
     if 'Pos.' in df.columns:
@@ -129,24 +130,35 @@ def main():
     df_passing = clean_numeric_columns(df_passing, columns_to_clean_passing)
     df_rushing = clean_numeric_columns(df_rushing, columns_to_clean_rushing)
     df_receiving = clean_numeric_columns(df_receiving, columns_to_clean_receiving)
+    df_wr_te_only = df_receiving[df_receiving['Pos'].isin(['WR', 'TE'])]
+    df_rb_combined = merge_dataframes(df_rushing, df_receiving, merge_col='Player')
 
-    df_test = merge_dataframes(
+    df_final_passing = merge_dataframes(
         df_contracts,
         df_passing,
         'Player',
         ['GS', 'QBrec', 'Sk', 'Yds.1', 'Sk%', 'NY/A', 'ANY/A', '4QC', 'GWD', 'Awards']
     )
-
-    print('--- contracts.head() ---')
-    print(df_contracts.head())
-    print('--- passing.head() ---')
-    print(df_passing.head())
-    print('--- rushing.head() ---')
-    print(df_rushing.head())
-    print('--- receiving.head() ---')
-    print(df_receiving.head())
-    print('--- df_test.head() ---')
-    print(df_test.head())
+    df_final_rushing = merge_dataframes(df_contracts[df_contracts['Pos'] == 'RB'], df_rb_combined, 'Player')
+    df_final_receiving = merge_dataframes(df_contracts[df_contracts['Pos'].isin(['WR', 'TE'])], df_receiving, 'Player')
+    
+    pd.set_option('display.max_columns', None)
+    # print('--- Contract Data ---')
+    # print(df_contracts.head())
+    # print('--- Passing Data ---')
+    # print(df_passing.head())
+    # print('--- Rushing Data ---')
+    # print(df_rushing.head())
+    # print('--- Receiving Data ---')
+    # print(df_receiving.head())
+    # print('--- Final Passing Data ---')
+    # print(df_final_passing.head())
+    print('--- Final Rushing Data ---')
+    print(df_final_rushing.head())
+    # print('--- Final Receiving Data ---')
+    # print(df_final_receiving.head())
+    print('--- Combined RB Data ---')
+    print(df_rb_combined.head())
 
 
 if __name__ == "__main__":
