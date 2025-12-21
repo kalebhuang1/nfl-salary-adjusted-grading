@@ -89,6 +89,12 @@ def merge_dataframes(df1, df2, merge_col, remove_cols=None):
     df_stats_cleaned = df2.drop(columns=cols_to_drop)
     return pd.merge(df1, df_stats_cleaned, on=merge_col, how='left')
 
+def convert_record_to_wins(record):
+    separator = '-'
+    index = record.find(separator)
+    if index != -1:
+        return int(record[:index])
+    return None
 
 def main():
     p = Path(__file__).resolve()
@@ -130,16 +136,17 @@ def main():
     df_passing = clean_numeric_columns(df_passing, columns_to_clean_passing)
     df_rushing = clean_numeric_columns(df_rushing, columns_to_clean_rushing)
     df_receiving = clean_numeric_columns(df_receiving, columns_to_clean_receiving)
+    df_qb_only = df_passing[df_passing['Pos'] == 'QB']
+    # Force the whole column to be strings before processing
+    df_qb_only['QBrec'] = df_qb_only['QBrec'].astype(str)
+    df_qb_only['QBrec'] = df_qb_only['QBrec'].apply(convert_record_to_wins)
     df_wr_te_only = df_receiving[df_receiving['Pos'].isin(['WR', 'TE'])]
-    df_rb_combined = merge_dataframes(df_rushing, df_receiving, merge_col='Player')
+    df_rb_only = merge_dataframes(df_rushing, df_receiving, merge_col='Player')
 
-    df_final_passing = merge_dataframes(
-        df_contracts,
-        df_passing,
-        'Player',
-        ['GS', 'QBrec', 'Sk', 'Yds.1', 'Sk%', 'NY/A', 'ANY/A', '4QC', 'GWD', 'Awards']
-    )
-    df_final_rushing = merge_dataframes(df_contracts[df_contracts['Pos'] == 'RB'], df_rb_combined, 'Player')
+    cols_to_remove_qb = ['Team', 'Pos', 'Rk', 'Age', 'GS', 'Sk', 'Yds.1', 'Sk%', 'NY/A', 'ANY/A', '4QC', 'GWD', 'Awards']
+
+    df_final_passing = merge_dataframes(df_contracts, df_qb_only, 'Player', cols_to_remove_qb)
+    df_final_rushing = merge_dataframes(df_contracts[df_contracts['Pos'] == 'RB'], df_rb_only, 'Player')
     df_final_receiving = merge_dataframes(df_contracts[df_contracts['Pos'].isin(['WR', 'TE'])], df_receiving, 'Player')
     
     pd.set_option('display.max_columns', None)
@@ -151,14 +158,12 @@ def main():
     # print(df_rushing.head())
     # print('--- Receiving Data ---')
     # print(df_receiving.head())
-    # print('--- Final Passing Data ---')
-    # print(df_final_passing.head())
-    print('--- Final Rushing Data ---')
-    print(df_final_rushing.head())
+    print('--- Final Passing Data ---')
+    print(df_final_passing.head())
+    # print('--- Final Rushing Data ---')
+    # print(df_final_rushing.head())
     # print('--- Final Receiving Data ---')
     # print(df_final_receiving.head())
-    print('--- Combined RB Data ---')
-    print(df_rb_combined.head())
 
 
 if __name__ == "__main__":
