@@ -33,6 +33,7 @@ def main():
     columns_to_clean_receiving = ["G", "GS", "Tgt", "Rec", "Yds", "1D", "YBC", "YBC/R", "YAC", "YAC/R", "ADOT", "BrkTkl", "Rec/Br", "Drop", "Drop%", "Int", "Rat"]
 
     df_contracts = convert_team_abbreviations(df_contracts, 'Team')
+    df_contracts['Player'] = df_contracts['Player'].replace('Matt Stafford', 'Matthew Stafford')
     df_passing = clean_numeric_columns(df_passing, columns_to_clean_passing)
     df_rushing = clean_numeric_columns(df_rushing, columns_to_clean_rushing)
     df_receiving = clean_numeric_columns(df_receiving, columns_to_clean_receiving)
