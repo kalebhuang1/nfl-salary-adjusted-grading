@@ -2,7 +2,7 @@ from pathlib import Path
 import pandas as pd
 from utils import * # This imports all the functions from utils.py
 
-def main():
+def get_cleaned_data():
     p = Path(__file__).resolve()
     base = None
     for parent in p.parents:
@@ -19,6 +19,9 @@ def main():
         df_rushing = pd.read_csv(raw / "rushing_data.csv")
         df_receiving = pd.read_csv(raw / "receiving_data.csv")
         df_passing_2 = pd.read_csv(raw / "qb_stats_sumer.csv")
+        df_passing_adv = pd.read_csv(raw / "adv_passing.csv")
+        df_opp_str_afc = pd.read_csv(raw / "opp_str_afc.csv")
+        df_opp_str_nfc = pd.read_csv(raw / "opp_str_nfc.csv")
     except FileNotFoundError as e:
         print("Data file not found:", e)
         return
@@ -27,6 +30,15 @@ def main():
     df_contracts = clean_contract(df_contracts)
     df_rushing = promote_first_row_to_header(df_rushing)
     df_receiving = promote_first_row_to_header(df_receiving)
+    df_passing_adv = promote_first_row_to_header(df_passing_adv)
+
+    df_opp_str = pd.concat([df_opp_str_afc, df_opp_str_nfc], ignore_index=True)
+    df_opp_str['Tm'] = df_opp_str['Tm'].apply(clean_nfl_string, sep = '*', keep_left=True)
+    df_opp_str['Tm'] = df_opp_str['Tm'].apply(clean_nfl_string, sep = '+', keep_left=True)
+    df_opp_str = convert_team_abbreviations(df_opp_str, 'Tm')
+    df_opp_str = df_opp_str.rename(columns={'Tm': 'Team'})
+    df_opp_str = df_opp_str[['Team', 'SoS']]
+    print(df_opp_str.head())
 
     columns_to_clean_passing = ["G", "GS", "Cmp", "Att", "Cmp%", "Yds", "TD", "TD%", "Int", "Int%", "1D", "Succ%", "Lng", "Y/A", "AY/A", "Y/C", "Y/G", "Rate", "QBR", "Sk", "Sk%", "NY/A", "ANY/A", "4QC", "GWD", "Awards"]
     columns_to_clean_rushing = ["G", "GS", "Att", "Yds", "TD", "1D", "Succ%", "Lng", "Y/A", "Y/G", "A/G", "Fmb"]
@@ -34,6 +46,10 @@ def main():
 
     df_contracts = convert_team_abbreviations(df_contracts, 'Team')
     df_contracts['Player'] = df_contracts['Player'].replace('Matt Stafford', 'Matthew Stafford')
+    df_contracts['APY'] = df_contracts['APY'].astype(str).str.replace(r'[$, ]', '', regex=True)
+    df_contracts['APY'] = pd.to_numeric(df_contracts['APY'], errors='coerce')
+    df_contracts['APY'] = df_contracts['APY'].fillna(0)
+
     df_passing = clean_numeric_columns(df_passing, columns_to_clean_passing)
     df_rushing = clean_numeric_columns(df_rushing, columns_to_clean_rushing)
     df_receiving = clean_numeric_columns(df_receiving, columns_to_clean_receiving)
@@ -43,7 +59,8 @@ def main():
     df_passing_2 = df_passing_2[passing_2_cols_to_keep]
     df_passing_2 = df_passing_2.rename(columns={'Player Name': 'Player'})
     df_passing_2['Player'] = df_passing_2['Player'].apply(clean_nfl_string, sep = '.', keep_left=False)
-    
+    passing_adv_cols_to_keep = ['Player', 'IAY/PA', 'Bad%', 'Prss%', 'OnTgt%']
+    df_passing_adv = df_passing_adv[passing_adv_cols_to_keep]
     df_qb_only['QBrec'] = df_qb_only['QBrec'].astype(str)
     df_qb_only['QBrec'] = df_qb_only['QBrec'].apply(clean_nfl_string)
     df_rb_only = merge_dataframes(df_rushing, df_receiving, merge_col='Player')
@@ -52,10 +69,13 @@ def main():
 
     df_final_passing = merge_dataframes(df_contracts, df_qb_only, 'Player', cols_to_remove_qb)
     df_final_passing = merge_dataframes(df_final_passing, df_passing_2, 'Player')
-    
-    # NEW STEP: Save the result so grading.py can use it
-    df_final_passing.to_csv("df_final_passing_cleaned.csv", index=False)
-    print("Cleaned data saved to df_final_passing_cleaned.csv")
+    df_final_passing = merge_dataframes(df_final_passing, df_passing_adv, 'Player')
+    df_final_passing = merge_dataframes(df_final_passing, df_opp_str, 'Team')
+
+    return df_final_passing
+
 
 if __name__ == "__main__":
-    main()
+    # This only runs if you run cleaning.py directly
+    df = get_cleaned_data()
+    print(df.head())

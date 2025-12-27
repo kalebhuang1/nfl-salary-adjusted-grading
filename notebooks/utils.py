@@ -35,10 +35,23 @@ def promote_first_row_to_header(df):
             df = df.reset_index(drop=True)
     return df
 
+# def convert_team_abbreviations(df, col):
+#     if col not in df.columns:
+#         return df
+#     df[col] = df[col].astype(str).str.lower().str.strip()
+#     abbreviation_map = {
+#         'bills': 'BUF', 'dolphins': 'MIA', 'patriots': 'NE', 'jets': 'NYJ',
+#         'ravens': 'BAL', 'bengals': 'CIN', 'browns': 'CLE', 'steelers': 'PIT',
+#         'texans': 'HOU', 'colts': 'IND', 'jaguars': 'JAX', 'titans': 'TEN',
+#         'broncos': 'DEN', 'chiefs': 'KC', 'raiders': 'LV', 'chargers': 'LAC',
+#         'cowboys': 'DAL', 'giants': 'NYG', 'eagles': 'PHI', 'commanders': 'WAS',
+#         'bears': 'CHI', 'lions': 'DET', 'packers': 'GB', 'vikings': 'MIN',
+#         'falcons': 'ATL', 'panthers': 'CAR', 'saints': 'NO', 'buccaneers': 'TB',
+#         'cardinals': 'ARI', 'rams': 'LAR', '49ers': 'SF', 'seahawks': 'SEA'
+#     }
+#     df[col] = df[col].map(abbreviation_map)
+#     return df
 def convert_team_abbreviations(df, col):
-    if col not in df.columns:
-        return df
-    df[col] = df[col].astype(str).str.lower().str.strip()
     abbreviation_map = {
         'bills': 'BUF', 'dolphins': 'MIA', 'patriots': 'NE', 'jets': 'NYJ',
         'ravens': 'BAL', 'bengals': 'CIN', 'browns': 'CLE', 'steelers': 'PIT',
@@ -49,7 +62,15 @@ def convert_team_abbreviations(df, col):
         'falcons': 'ATL', 'panthers': 'CAR', 'saints': 'NO', 'buccaneers': 'TB',
         'cardinals': 'ARI', 'rams': 'LAR', '49ers': 'SF', 'seahawks': 'SEA'
     }
-    df[col] = df[col].map(abbreviation_map)
+
+    def find_team(text):
+        text = str(text).lower()
+        for nickname, abbr in abbreviation_map.items():
+            if nickname in text: # This checks for "san francisco 49ers"
+                return abbr
+        return text # Return original if no match found
+
+    df[col] = df[col].apply(find_team)
     return df
 
 def merge_dataframes(df1, df2, merge_col, remove_cols=None):
@@ -70,7 +91,16 @@ def clean_nfl_string(text, sep='-', keep_left=True):
 
 def standardize_columns(df, cols):
     for col in cols:
+        
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+        
+       
         mean = df[col].mean()
         std = df[col].std()
-        df[f'{col}_z'] = (df[col] - mean) / std
+        
+     
+        if std > 0:
+            df[f'{col}_z'] = (df[col] - mean) / std
+        else:
+            df[f'{col}_z'] = 0
     return df

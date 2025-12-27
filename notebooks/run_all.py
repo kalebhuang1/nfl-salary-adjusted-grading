@@ -11,7 +11,7 @@ def run_scripts():
 
     # 1. Run the cleaning script
     print("Step 1: Cleaning and Merging Data...")
-    subprocess.run([python_path, str(folder / "cleaning.py")], check=True)
+    subprocess.run([python_path, str(folder / "qb_cleaning.py")], check=True)
     
     # 2. Run the grading script
     print("\nStep 2: Calculating QB Grades...")
