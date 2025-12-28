@@ -104,3 +104,19 @@ def standardize_columns(df, cols):
         else:
             df[f'{col}_z'] = 0
     return df
+
+def fix_flacco_manually(df):
+    flacco_rows = df[df['Player'] == 'Joe Flacco']
+    
+    if not flacco_rows.empty:
+        clean_flacco = flacco_rows.iloc[0].copy()
+        clean_flacco['Team'] = 'CIN'
+        cin_sos = flacco_rows[flacco_rows['Team'] == 'CIN']['SoS']
+        if not cin_sos.empty:
+            clean_flacco['SoS'] = cin_sos.iloc[0]
+        else:
+            clean_flacco['SoS'] = -0.1 
+        df = df[df['Player'] != 'Joe Flacco'].copy()
+        df = pd.concat([df, pd.DataFrame([clean_flacco])], ignore_index=True)
+    
+    return df

@@ -1,8 +1,8 @@
 from pathlib import Path
 import pandas as pd
-from utils import * # This imports all the functions from utils.py
+from utils import * 
 
-def get_cleaned_data():
+def get_cleaned_data_qb():
     p = Path(__file__).resolve()
     base = None
     for parent in p.parents:
@@ -25,8 +25,7 @@ def get_cleaned_data():
     except FileNotFoundError as e:
         print("Data file not found:", e)
         return
-
-    # CLEANING DATA (Your logic, exactly as provided)
+#------------------------------------CLEANING------------------------------------------------------#
     df_contracts = clean_contract(df_contracts)
     df_rushing = promote_first_row_to_header(df_rushing)
     df_receiving = promote_first_row_to_header(df_receiving)
@@ -38,7 +37,7 @@ def get_cleaned_data():
     df_opp_str = convert_team_abbreviations(df_opp_str, 'Tm')
     df_opp_str = df_opp_str.rename(columns={'Tm': 'Team'})
     df_opp_str = df_opp_str[['Team', 'SoS']]
-    print(df_opp_str.head())
+    
 
     columns_to_clean_passing = ["G", "GS", "Cmp", "Att", "Cmp%", "Yds", "TD", "TD%", "Int", "Int%", "1D", "Succ%", "Lng", "Y/A", "AY/A", "Y/C", "Y/G", "Rate", "QBR", "Sk", "Sk%", "NY/A", "ANY/A", "4QC", "GWD", "Awards"]
     columns_to_clean_rushing = ["G", "GS", "Att", "Yds", "TD", "1D", "Succ%", "Lng", "Y/A", "Y/G", "A/G", "Fmb"]
@@ -66,16 +65,19 @@ def get_cleaned_data():
     df_rb_only = merge_dataframes(df_rushing, df_receiving, merge_col='Player')
 
     cols_to_remove_qb = ['Team', 'Pos', 'Rk', 'Age', 'G', 'GS', 'Cmp', 'Yds', 'TD', 'Int', '1D', 'SkYds', 'Y/A', 'AY/A', 'NY/A', 'Y/C', 'Cmp%', 'Lng', 'Sk', 'Yds.1','4QC', 'GWD', 'Awards']
-
+#-------------------------------------MERGING------------------------------------------------------#
     df_final_passing = merge_dataframes(df_contracts, df_qb_only, 'Player', cols_to_remove_qb)
     df_final_passing = merge_dataframes(df_final_passing, df_passing_2, 'Player')
     df_final_passing = merge_dataframes(df_final_passing, df_passing_adv, 'Player')
     df_final_passing = merge_dataframes(df_final_passing, df_opp_str, 'Team')
 
+    df_final_passing = fix_flacco_manually(df_final_passing)
+    print(df_final_passing[df_final_passing['Player'] == 'Joe Flacco'])
+
+
     return df_final_passing
 
 
 if __name__ == "__main__":
-    # This only runs if you run cleaning.py directly
-    df = get_cleaned_data()
+    df = get_cleaned_data_qb()
     print(df.head())
