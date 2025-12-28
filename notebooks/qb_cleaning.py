@@ -2,6 +2,8 @@ from pathlib import Path
 import pandas as pd
 from utils import * 
 
+pd.set_option('display.max_columns', None)
+pd.set_option('display.width', 100)
 def get_cleaned_data_qb():
     p = Path(__file__).resolve()
     base = None
@@ -57,7 +59,9 @@ def get_cleaned_data_qb():
     passing_2_cols_to_keep = ['Player Name', 'EPA/Play', 'Pass EPA', 'Rush EPA', 'ADoT', 'Time To Throw']
     df_passing_2 = df_passing_2[passing_2_cols_to_keep]
     df_passing_2 = df_passing_2.rename(columns={'Player Name': 'Player'})
-    df_passing_2['Player'] = df_passing_2['Player'].apply(clean_nfl_string, sep = '.', keep_left=False)
+    df_passing_2['Player'] = df_passing_2['Player'].str.replace(r'^\d+\.\s*', '', regex=True).str.strip()
+    df_passing_2['Player'] = df_passing_2['Player'].replace('Cameron Ward', 'Cam Ward')
+
     passing_adv_cols_to_keep = ['Player', 'IAY/PA', 'Bad%', 'Prss%', 'OnTgt%']
     df_passing_adv = df_passing_adv[passing_adv_cols_to_keep]
     df_qb_only['QBrec'] = df_qb_only['QBrec'].astype(str)
@@ -73,6 +77,8 @@ def get_cleaned_data_qb():
 
     df_final_passing = fix_flacco_manually(df_final_passing)
     print(df_final_passing[df_final_passing['Player'] == 'Joe Flacco'])
+    print(df_final_passing[df_final_passing['Player'] == 'J.J. McCarthy'])
+    print(df_final_passing[df_final_passing['Player'] == 'C.J. Stroud'])
 
 
     return df_final_passing

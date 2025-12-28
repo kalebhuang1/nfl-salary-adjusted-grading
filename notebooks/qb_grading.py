@@ -59,7 +59,7 @@ tier_map = {
 }
 df['Contract_Tier'] = df['Salary_Cluster'].map(tier_map)
 
-threshold = 30.0
+threshold = 35.0
 backup_min, backup_max = 1.2, 10.0 
 bridge_min, bridge_max = 10.0, 25.0  
 starter_min, starter_max = 35.0, 65.0 
@@ -85,10 +85,6 @@ print("\nOverall Leaderboard (Value Diff):")
 print(ovr_vet_qb_adj_leaderboard.head(20))
 
 #------------------------------------MARKET VALUE ROOKIES/CHEAP -----------------------------------------#
-def calculate_rookie_market_value(grade):
-    return ((grade - 0) / (100 - 0)) * (rookie_max - rookie_min) + rookie_min
-
-rookie_min, rookie_max = 0.5, 10.0
 rookie_qbs = df[df['Contract_Tier'] == 'Rookie/Cheap'].copy()
 rookie_qbs['Market Value'] = rookie_qbs['Final_Grade'].apply(calculate_market_value).round(2)
 rookie_qbs['APYM'] = rookie_qbs['APY'] / 1_000_000
