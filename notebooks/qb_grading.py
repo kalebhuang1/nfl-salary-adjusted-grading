@@ -10,7 +10,7 @@ pd.set_option('display.width', 100)
 
 #------------------------------------GRADING------------------------------------------------------#
 df = get_cleaned_data_qb()
-df = df[df['Att'] >= 200].copy()
+df = df[df['Att'] >= 150].copy()
 drivers = ['ANY/A', 'EPA/Play', 'QBR', 'Succ%', 'Int%', 'Sk%', 'Att', 'Rush EPA', 'TD%', 'IAY/PA','Bad%', 'Prss%', 'OnTgt%', 'SoS']
 df = standardize_columns(df, drivers)
 df['Composite_Z'] = (
@@ -38,6 +38,7 @@ df['Final_Grade'] = df['Final_Grade'].round(2)
 df = df.sort_values(by='Final_Grade', ascending=False).reset_index(drop=True)
 
 df.index = df.index + 1
+print(df.isna().sum())
 
 score_leaderboard_qbs = df[['Player', 'Team', 'Final_Grade', 'Att', 'EPA/Play', 'ANY/A', 'SoS']].sort_values(by='Final_Grade', ascending=False)
 print(score_leaderboard_qbs.head(20))

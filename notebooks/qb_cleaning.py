@@ -50,6 +50,8 @@ def get_cleaned_data_qb():
     df_contracts['APY'] = df_contracts['APY'].astype(str).str.replace(r'[$, ]', '', regex=True)
     df_contracts['APY'] = pd.to_numeric(df_contracts['APY'], errors='coerce')
     df_contracts['APY'] = df_contracts['APY'].fillna(0)
+    df_contracts = df_contracts.drop(columns = ['Team'])
+    df_contracts['Player'] = df_contracts['Player'].replace('Michael Penix Jr.', 'Michael Penix')
 
     df_passing = clean_numeric_columns(df_passing, columns_to_clean_passing)
     df_rushing = clean_numeric_columns(df_rushing, columns_to_clean_rushing)
@@ -67,18 +69,31 @@ def get_cleaned_data_qb():
     df_qb_only['QBrec'] = df_qb_only['QBrec'].astype(str)
     df_qb_only['QBrec'] = df_qb_only['QBrec'].apply(clean_nfl_string)
     df_rb_only = merge_dataframes(df_rushing, df_receiving, merge_col='Player')
-
-    cols_to_remove_qb = ['Team', 'Pos', 'Rk', 'Age', 'G', 'GS', 'Cmp', 'Yds', 'TD', 'Int', '1D', 'SkYds', 'Y/A', 'AY/A', 'NY/A', 'Y/C', 'Cmp%', 'Lng', 'Sk', 'Yds.1','4QC', 'GWD', 'Awards']
+    
+    cols_to_remove_qb = ['Pos', 'Rk', 'Age', 'G', 'GS', 'Cmp', 'Yds', 'TD', 'Int', '1D', 'SkYds', 'Y/A', 'AY/A', 'NY/A', 'Y/C', 'Cmp%', 'Lng', 'Sk', 'Yds.1','4QC', 'GWD', 'Awards']
+    df_qb_only = df_qb_only.drop(columns=cols_to_remove_qb, errors='ignore')
 #-------------------------------------MERGING------------------------------------------------------#
-    df_final_passing = merge_dataframes(df_contracts, df_qb_only, 'Player', cols_to_remove_qb)
+    df_final_passing = merge_dataframes(df_qb_only, df_contracts, 'Player')
+    team_map = {
+        'NWE': 'NE',  
+        'GNB': 'GB',  
+        'KAN': 'KC',  
+        'SFO': 'SF',  
+        'NOR': 'NO',  
+        'TAM': 'TB',  
+        'LVR': 'LV',  
+    
+    }
+    df_final_passing['Team'] = df_final_passing['Team'].replace(team_map)
     df_final_passing = merge_dataframes(df_final_passing, df_passing_2, 'Player')
     df_final_passing = merge_dataframes(df_final_passing, df_passing_adv, 'Player')
     df_final_passing = merge_dataframes(df_final_passing, df_opp_str, 'Team')
+    
+    if 'Team' in df_final_passing.columns:
+        df_final_passing = df_final_passing[df_final_passing['Team'] != '2TM'].copy()
+    df_final_passing = df_final_passing.drop_duplicates(subset=['Player', 'Team'], keep='first')
+    df_final_passing.loc[(df_final_passing['Player'] == 'Joe Flacco') & (df_final_passing['QBR'].isna()), 'QBR'] = 40.9
 
-    df_final_passing = fix_flacco_manually(df_final_passing)
-    print(df_final_passing[df_final_passing['Player'] == 'Joe Flacco'])
-    print(df_final_passing[df_final_passing['Player'] == 'J.J. McCarthy'])
-    print(df_final_passing[df_final_passing['Player'] == 'C.J. Stroud'])
 
 
     return df_final_passing
