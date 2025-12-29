@@ -66,9 +66,9 @@ def convert_team_abbreviations(df, col):
     def find_team(text):
         text = str(text).lower()
         for nickname, abbr in abbreviation_map.items():
-            if nickname in text: # This checks for "san francisco 49ers"
+            if nickname in text: 
                 return abbr
-        return text # Return original if no match found
+        return text 
 
     df[col] = df[col].apply(find_team)
     return df
