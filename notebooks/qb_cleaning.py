@@ -94,7 +94,7 @@ def get_cleaned_data_qb():
     df_final_passing = df_final_passing.drop_duplicates(subset=['Player', 'Team'], keep='first')
     df_final_passing.loc[(df_final_passing['Player'] == 'Joe Flacco') & (df_final_passing['QBR'].isna()), 'QBR'] = 40.9
 
-
+    print(df_final_passing[df_final_passing['Player'] == 'Joe Flacco'])
 
     return df_final_passing
 

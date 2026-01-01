@@ -12,24 +12,25 @@ def run_scripts():
     ]
 
     for message, script_name in scripts:
+        print(f"\n{'='*50}")
         print(message)
+        print(f"{'='*50}")
+        
         script_path = str(folder / script_name)
         
         try:
-            # check=True: Raises an error if the script fails
-            # capture_output=True: Grabs the error message text
-            # text=True: Makes sure the output is a readable string, not bytes
-            subprocess.run([python_path, script_path], check=True, capture_output=True, text=True)
-            print(f"--- {script_name} completed successfully! ---\n")
+            # We remove capture_output so you see the prints live in the terminal
+            subprocess.run([python_path, script_path], check=True)
+            print(f"\n✅ {script_name} completed successfully!")
             
-        except subprocess.CalledProcessError as e:
-            print(f"\n❌ ERROR in {script_name}:")
-            # This 'e.stderr' is the key—it contains the actual Traceback/NaN error
-            print("-" * 50)
-            print(e.stderr) 
-            print("-" * 50)
-            print("Stopping execution due to error.")
-            sys.exit(1) # Stop the rest of the scripts from running
+        except subprocess.CalledProcessError:
+            print(f"\n❌ ERROR: {script_name} failed.")
+            print("Check the traceback above to see exactly why it crashed.")
+            sys.exit(1)
+
+    print(f"\n{'*'*50}")
+    print("ALL TASKS COMPLETED SUCCESSFULLY!")
+    print(f"{'*'*50}")
 
 if __name__ == "__main__":
     run_scripts()

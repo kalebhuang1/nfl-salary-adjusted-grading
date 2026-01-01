@@ -3,3 +3,28 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
+
+from qb_cleaning import get_cleaned_data_qb
+from qb_grading import calculate_final_grade, assign_contract_tiers, market_data
+
+pd.set_option('display.max_columns', None)
+pd.set_option('display.width', 100)
+df = get_cleaned_data_qb()
+# 1. Filter for rows that have at least one NaN
+nan_rows = df[df.isna().any(axis=1)]
+
+# 2. Display the rows and the missing columns
+if not nan_rows.empty:
+    print("🚨 FOUND ROWS WITH MISSING DATA:")
+    print(nan_rows)
+    
+    # Optional: Detailed count of NaNs per column for those specific rows
+    print("\nMissing values count per column:")
+    print(nan_rows.isna().sum())
+else:
+    print("✅ No NaNs found in the DataFrame!")
+df = calculate_final_grade(df, 0)
+df = assign_contract_tiers(df)
+df = market_data(df, ['Rookie/Cheap', 'Franchise/Elite', 'Bridge/Mid'])
+df=df[['Player', 'Team', 'Final_Grade', 'Value Diff']]
+print(df.head())
