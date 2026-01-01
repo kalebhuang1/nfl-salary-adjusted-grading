@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.linear_model import LinearRegression
@@ -10,21 +11,27 @@ from qb_grading import calculate_final_grade, assign_contract_tiers, market_data
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', 100)
 df = get_cleaned_data_qb()
-# 1. Filter for rows that have at least one NaN
-nan_rows = df[df.isna().any(axis=1)]
-
-# 2. Display the rows and the missing columns
-if not nan_rows.empty:
-    print("🚨 FOUND ROWS WITH MISSING DATA:")
-    print(nan_rows)
-    
-    # Optional: Detailed count of NaNs per column for those specific rows
-    print("\nMissing values count per column:")
-    print(nan_rows.isna().sum())
-else:
-    print("✅ No NaNs found in the DataFrame!")
 df = calculate_final_grade(df, 0)
+df_grades = df[['Player', 'Team', 'Final_Grade', 'Att']].copy()
 df = assign_contract_tiers(df)
 df = market_data(df, ['Rookie/Cheap', 'Franchise/Elite', 'Bridge/Mid'])
-df=df[['Player', 'Team', 'Final_Grade', 'Value Diff']]
+print ("Top 20 QBs by Value Difference:")
 print(df.head())
+
+
+weighted_grades = df.groupby('Team').apply(lambda x: 
+    np.average(x['Final_Grade'], weights=x['Att']) if x['Att'].sum() > 0 else x['Final_Grade'].mean(),include_groups=False)
+weighted_grades = weighted_grades.reset_index()
+weighted_grades.columns = ['Team', 'Team_Final_Grade']
+weighted_grades = weighted_grades.sort_values(by = 'Team_Final_Grade', ascending=True)
+
+plt.figure(figsize=(12, 8))
+plt.barh(weighted_grades['Team'], weighted_grades['Team_Final_Grade'], color='skyblue')
+
+plt.xlabel('Weighted Team Final Grade')
+plt.ylabel('Team')
+plt.title('Weighted Team Final Grade by NFL Team')
+
+plt.grid(axis='x', linestyle='--', alpha=0.7)
+plt.tight_layout()
+plt.savefig('team_grades_plot.png')

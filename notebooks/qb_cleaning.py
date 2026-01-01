@@ -52,8 +52,10 @@ def get_cleaned_data_qb():
     df_contracts['APY'] = df_contracts['APY'].fillna(0)
     df_contracts = df_contracts.drop(columns = ['Team'])
     df_contracts['Player'] = df_contracts['Player'].replace('Michael Penix Jr.', 'Michael Penix')
+    df_contracts = normalize_player_names(df_contracts, 'Player')   
 
     df_passing = clean_numeric_columns(df_passing, columns_to_clean_passing)
+    df_passing = normalize_player_names(df_passing, 'Player')
     df_rushing = clean_numeric_columns(df_rushing, columns_to_clean_rushing)
     df_receiving = clean_numeric_columns(df_receiving, columns_to_clean_receiving)
     
@@ -62,10 +64,12 @@ def get_cleaned_data_qb():
     df_passing_2 = df_passing_2[passing_2_cols_to_keep]
     df_passing_2 = df_passing_2.rename(columns={'Player Name': 'Player'})
     df_passing_2['Player'] = df_passing_2['Player'].str.replace(r'^\d+\.\s*', '', regex=True).str.strip()
+    df_passing_2 = normalize_player_names(df_passing_2, 'Player')
     df_passing_2['Player'] = df_passing_2['Player'].replace('Cameron Ward', 'Cam Ward')
 
     passing_adv_cols_to_keep = ['Player', 'IAY/PA', 'Bad%', 'Prss%', 'OnTgt%']
     df_passing_adv = df_passing_adv[passing_adv_cols_to_keep]
+    df_passing_adv = normalize_player_names(df_passing_adv, 'Player')
     df_qb_only['QBrec'] = df_qb_only['QBrec'].astype(str)
     df_qb_only['QBrec'] = df_qb_only['QBrec'].apply(clean_nfl_string)
     df_rb_only = merge_dataframes(df_rushing, df_receiving, merge_col='Player')
@@ -94,11 +98,21 @@ def get_cleaned_data_qb():
     df_final_passing = df_final_passing.drop_duplicates(subset=['Player', 'Team'], keep='first')
     df_final_passing.loc[(df_final_passing['Player'] == 'Joe Flacco') & (df_final_passing['QBR'].isna()), 'QBR'] = 40.9
 
-    print(df_final_passing[df_final_passing['Player'] == 'Joe Flacco'])
+    for col in ['Prss%', 'Bad%', 'OnTgt%', 'IAY/PA']:
+        df_final_passing[col] = df_final_passing[col].astype(str).str.replace('%', '', regex=False)
+        df_final_passing[col] = pd.to_numeric(df_final_passing[col], errors='coerce')
+    
 
+    zero_cols = ['TD%', 'Int%', 'Rush EPA', 'Pass EPA', 'EPA/Play', 'Succ%']
+    percentile_cols = ['QBR', 'Rate', 'OnTgt%', 'IAY/PA', 'ANY/A']
+    average_cols = ['Time To Throw', 'ADoT', 'Prss%', 'Bad%']
+
+    
+    df_final_passing = fix_nan(df_final_passing, zero_cols, average_cols, percentile_cols, 0.1)
+    
     return df_final_passing
 
 
 if __name__ == "__main__":
     df = get_cleaned_data_qb()
-    print(df.head())
+    print(df.head(10))

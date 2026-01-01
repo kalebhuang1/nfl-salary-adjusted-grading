@@ -120,3 +120,36 @@ def fix_flacco_manually(df):
         df = pd.concat([df, pd.DataFrame([clean_flacco])], ignore_index=True)
     
     return df
+
+def normalize_player_names(df, name_col='Player'):
+   
+    df = df.copy()
+    df[name_col] = df[name_col].str.strip().str.title()
+    suffixes = r'\b(Jr|Sr|II|III|IV|V|iii|iv|Iv|Iii|Ii)\.?\b'
+    df[name_col] = df[name_col].str.replace(suffixes, '', regex=True, flags=re.IGNORECASE)
+
+    df[name_col] = df[name_col].str.replace(r'[.\']', '', regex=True)
+    
+    df[name_col] = df[name_col].str.replace(r'\s+', ' ', regex=True).str.strip()
+    
+    return df
+
+def fix_nan(df, zero_cols, average_cols, percentile_cols, pct_val):
+    df = df.copy()
+
+    all_to_fix = [
+        (zero_cols, "zero"), 
+        (average_cols, "mean"), 
+        (percentile_cols, "percentile")
+    ]
+    for col_list, method in all_to_fix:
+        for col in col_list: 
+            if col in df.columns:
+                if method == "zero":
+                    df[col] = df[col].fillna(0)
+                elif method == "mean":
+                    df[col] = df[col].fillna(df[col].mean())
+                elif method == "percentile":
+                    df[col] = df[col].fillna(df[col].quantile(pct_val))
+    
+    return df

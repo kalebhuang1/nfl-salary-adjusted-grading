@@ -72,7 +72,7 @@ def calculate_market_value(grade):
         return ((grade - threshold) / (100 - threshold)) * (starter_max - starter_min) + starter_min
 
 def market_data(df, group_col):
-    df = df[df['Contract_Tier'].isin([group_col])].copy()
+    df = df[df['Contract_Tier'].isin(group_col)].copy()
     df['Market Value'] = df['Final_Grade'].apply(calculate_market_value).round(2)
     df['APYM'] = df['APY'] / 1_000_000
     df['Value Diff'] = (df['Market Value'] - df['APYM']).round(2)
@@ -89,7 +89,7 @@ print("\nOverall Leaderboard (Value Diff):")
 print(ovr_vet_qb_adj_leaderboard.head(5))
 
 #------------------------------------MARKET VALUE ROOKIES/CHEAP -----------------------------------------#
-rookie_qbs = market_data(df, 'Rookie/Cheap')
+rookie_qbs = market_data(df, ['Rookie/Cheap'])
 rookie_qb_leaderboard = rookie_qbs[['Player', 'Team', 'Value Diff', 'APY', 'Final_Grade', 'Contract_Tier', 'Market Value']].sort_values(by='Value Diff', ascending=False)
 rookie_qb_leaderboard = rookie_qb_leaderboard.reset_index(drop=True)
 rookie_qb_leaderboard.index = rookie_qb_leaderboard.index+1
