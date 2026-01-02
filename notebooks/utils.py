@@ -1,5 +1,7 @@
+from curses import raw
 import pandas as pd
 import re
+from pathlib import Path
 
 def clean_numeric_columns(df, cols):
     for col in cols:
@@ -153,3 +155,15 @@ def fix_nan(df, zero_cols, average_cols, percentile_cols, pct_val):
                     df[col] = df[col].fillna(df[col].quantile(pct_val))
     
     return df
+
+def wins_export():
+    raw = Path("data/raw")
+    df_opp_str_afc = pd.read_csv(raw / "opp_str_afc.csv")
+    df_opp_str_nfc = pd.read_csv(raw / "opp_str_nfc.csv")
+    df_team_wins = pd.concat([df_opp_str_afc, df_opp_str_nfc], ignore_index=True)
+    df_team_wins['Tm'] = df_team_wins['Tm'].apply(clean_nfl_string, sep = '*', keep_left=True)
+    df_team_wins['Tm'] = df_team_wins['Tm'].apply(clean_nfl_string, sep = '+', keep_left=True)
+    df_team_wins = convert_team_abbreviations(df_team_wins, 'Tm')
+    df_team_wins = df_team_wins.rename(columns={'Tm': 'Team'})
+    df_team_wins = df_team_wins[['Team', 'W']]
+    return df_team_wins   

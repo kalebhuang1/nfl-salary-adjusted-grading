@@ -10,6 +10,11 @@ pd.set_option('display.width', 100)
 
 #------------------------------------GRADING------------------------------------------------------#
 df = get_cleaned_data_qb()
+def calculate_ramp_penalty(att, limit=250):
+    if att >= limit:
+        return 1.0
+    return att / limit
+
 def calculate_final_grade(df, att_min=150):
     df = df[df['Att'] >= att_min].copy()
 
@@ -17,13 +22,13 @@ def calculate_final_grade(df, att_min=150):
     df = standardize_columns(df, drivers)
     df['Composite_Z'] = (
   
-        (df['EPA/Play_z'] * 0.25) +
-        (df['ANY/A_z'] * 0.20) +
+        (df['EPA/Play_z'] * 0.275) +
+        (df['ANY/A_z'] * 0.25) +
         (df['OnTgt%_z'] * 0.075) +
         (df['IAY/PA_z'] * 0.10) +
         (df['SoS_z'] * 0.05) + 
         (df['TD%_z'] * 0.05) +  
-        (df['Att_z'] * 0.1) +
+        (df['Att_z'] * 0.025) +
         (df['Rush EPA_z'] * 0.05) +
         (df['Succ%_z'] * 0.075) +
         (df['QBR_z'] * 0.05) +
@@ -32,9 +37,10 @@ def calculate_final_grade(df, att_min=150):
         (df['Bad%_z'] * 0.075) -
         (df['Sk%_z'] * 0.025)
     )
-
+    df['Composite_Z'] = df['Composite_Z'] * df['Att'].apply(calculate_ramp_penalty)
     min_z = df['Composite_Z'].min()
     max_z = df['Composite_Z'].max()
+    
     df['Final_Grade'] = ((df['Composite_Z'] - min_z) / (max_z - min_z)) * 100
     df['Final_Grade'] = df['Final_Grade'].round(2)
     df = df.sort_values(by='Final_Grade', ascending=False).reset_index(drop=True)
