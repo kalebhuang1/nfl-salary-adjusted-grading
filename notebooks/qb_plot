@@ -12,18 +12,23 @@ from qb_grading import calculate_final_grade, assign_contract_tiers, market_data
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', 100)
 df = get_cleaned_data_qb()
+df['Att'] = df['Att'].fillna(0)
+
 df = calculate_final_grade(df, 0)
+
 df_grades = df[['Player', 'Team', 'Final_Grade', 'Att']].copy()
 df = assign_contract_tiers(df)
 df = market_data(df, ['Rookie/Cheap', 'Franchise/Elite', 'Bridge/Mid'])
 print ("Top 20 QBs by Value Difference:")
 print(df.head())
-
-weighted_grades = df.groupby('Team').apply(lambda x: 
-    np.average(x['Value Diff'], weights=x['Att']) if x['Att'].sum() > 0 else x['Value Diff'].mean(),include_groups=False)
-weighted_grades = weighted_grades.reset_index()
-weighted_grades.columns = ['Team', 'Team_w_Value_Diff']
-weighted_grades = weighted_grades.sort_values(by = 'Team_w_Value_Diff', ascending=True)
+print(df[df['Player'] == 'Deshaun Watson'])
+print(df[df['Team'] == 'NO'])
+team_value = df.groupby('Team')['Value Diff'].sum().reset_index()
+# weighted_grades = df.groupby('Team').apply(lambdax: 
+#     np.average(x['Value Diff'], weights=x['Att']) if x['Att'].sum() > 0 else x['Value Diff'].mean(),include_groups=False)
+# weighted_grades = weighted_grades.reset_index()
+team_value.columns = ['Team', 'Team_w_Value_Diff']
+team_value = team_value.sort_values(by = 'Team_w_Value_Diff', ascending=True)
 
 # df_team = df[['Team', 'APYM', 'Value Diff']]
 # df_team = df_team.groupby('Team').sum().reset_index()
@@ -32,7 +37,7 @@ weighted_grades = weighted_grades.sort_values(by = 'Team_w_Value_Diff', ascendin
 
 df_wins = wins_export()
 
-df_final = pd.merge(weighted_grades, df_wins, on='Team', how='left')
+df_final = pd.merge(team_value, df_wins, on='Team', how='left')
 print(df_final.head())
 
 

@@ -10,18 +10,44 @@ pd.set_option('display.width', 100)
 
 #------------------------------------GRADING------------------------------------------------------#
 df = get_cleaned_data_qb()
+df['Att'] = df['Att'].fillna(0)
+
 def calculate_ramp_penalty(att, limit=250):
     if att >= limit:
         return 1.0
     return att / limit
 
-def calculate_final_grade(df, att_min=150):
-    df = df[df['Att'] >= att_min].copy()
-
+def calculate_final_grade(df, att_min=0):
+    df = df[df['Att'] >= (att_min - 1e-9)].copy()
+    
     drivers = ['ANY/A', 'EPA/Play', 'QBR', 'Succ%', 'Int%', 'Sk%', 'Att', 'Rush EPA', 'TD%', 'IAY/PA','Bad%', 'Prss%', 'OnTgt%', 'SoS']
-    df = standardize_columns(df, drivers)
+    df[drivers] = df[drivers].fillna(0)
+    
+    z_cols = [f"{col}_z" for col in drivers]
+    df_active = df[df['Att'] > 0].copy()
+    df_inactive = df[df['Att'] <= 0].copy()
+
+    if not df_active.empty:
+        calibration_pool = df_active[df_active['Att'] >= 150] 
+        
+        if len(calibration_pool) < 10:
+            calibration_pool = df_active.nlargest(32, 'Att')
+
+
+        for col in drivers:
+            mu = calibration_pool[col].mean()
+            sigma = calibration_pool[col].std()
+            
+            sigma = sigma if sigma > 0 else 1.0 
+            
+            df_active[f"{col}_z"] = (df_active[col] - mu) / sigma
+
+    for col in z_cols:
+        df_inactive[col] = -3.0
+        
+    df = pd.concat([df_active, df_inactive], axis=0).reset_index(drop=True)
+
     df['Composite_Z'] = (
-  
         (df['EPA/Play_z'] * 0.275) +
         (df['ANY/A_z'] * 0.25) +
         (df['OnTgt%_z'] * 0.075) +
@@ -37,17 +63,31 @@ def calculate_final_grade(df, att_min=150):
         (df['Bad%_z'] * 0.075) -
         (df['Sk%_z'] * 0.025)
     )
+
     df['Composite_Z'] = df['Composite_Z'] * df['Att'].apply(calculate_ramp_penalty)
-    min_z = df['Composite_Z'].min()
-    max_z = df['Composite_Z'].max()
+    
+    if 'GS' in df.columns:
+        df.loc[df['GS'] == 0, 'Composite_Z'] = df['Composite_Z'].min() - 1
+
+
+    calibration_z = df[df['Att'] >= 150]['Composite_Z']
+    if not calibration_z.empty:
+        min_z = calibration_z.min()
+        max_z = calibration_z.max()
+    else:
+        min_z = df['Composite_Z'].min()
+        max_z = df['Composite_Z'].max()
     
     df['Final_Grade'] = ((df['Composite_Z'] - min_z) / (max_z - min_z)) * 100
-    df['Final_Grade'] = df['Final_Grade'].round(2)
+    df['Final_Grade'] = df['Final_Grade'] * df['Att'].apply(lambda x: calculate_ramp_penalty(x, limit=250))
+    df['Final_Grade'] = df['Final_Grade'].clip(0, 100).round(2)
+    
+    if 'GS' in df.columns:
+        df.loc[df['GS'] == 0, 'Final_Grade'] = 0
+
     df = df.sort_values(by='Final_Grade', ascending=False).reset_index(drop=True)
     df.index = df.index + 1
 
-    score_leaderboard_qbs = df[['Player', 'Team', 'Final_Grade', 'Att', 'EPA/Play', 'ANY/A', 'SoS']].sort_values(by='Final_Grade', ascending=False)
-    print(score_leaderboard_qbs.head(5))
     return df
 
 #------------------------------------CONTRACTS------------------------------------------------------#
@@ -83,7 +123,7 @@ def market_data(df, group_col):
     df['APYM'] = df['APY'] / 1_000_000
     df['Value Diff'] = (df['Market Value'] - df['APYM']).round(2)
     return df
-df=calculate_final_grade(df, 150)
+df=calculate_final_grade(df, 0)
 df=assign_contract_tiers(df)
 #------------------------------------MARKET VALUE ELITE/VETS -----------------------------------------#
 
@@ -92,7 +132,7 @@ ovr_vet_qb_adj_leaderboard = vet_qbs_adj[['Player', 'Team', 'Value Diff', 'APY',
 ovr_vet_qb_adj_leaderboard = ovr_vet_qb_adj_leaderboard.reset_index(drop=True)
 ovr_vet_qb_adj_leaderboard.index = ovr_vet_qb_adj_leaderboard.index+1
 print("\nOverall Leaderboard (Value Diff):")
-print(ovr_vet_qb_adj_leaderboard.head(5))
+print(ovr_vet_qb_adj_leaderboard.head(30))
 
 #------------------------------------MARKET VALUE ROOKIES/CHEAP -----------------------------------------#
 rookie_qbs = market_data(df, ['Rookie/Cheap'])
