@@ -19,27 +19,28 @@ df = market_data(df, ['Rookie/Cheap', 'Franchise/Elite', 'Bridge/Mid'])
 print ("Top 20 QBs by Value Difference:")
 print(df.head())
 
-df_team = df[['Team', 'APYM', 'Value Diff']]
-df_team = df_team.groupby('Team').sum().reset_index()
-print(df_team.head(16))
-
 weighted_grades = df.groupby('Team').apply(lambda x: 
-    np.average(x['Final_Grade'], weights=x['Att']) if x['Att'].sum() > 0 else x['Final_Grade'].mean(),include_groups=False)
+    np.average(x['Value Diff'], weights=x['Att']) if x['Att'].sum() > 0 else x['Value Diff'].mean(),include_groups=False)
 weighted_grades = weighted_grades.reset_index()
-weighted_grades.columns = ['Team', 'Team_Final_Grade']
-weighted_grades = weighted_grades.sort_values(by = 'Team_Final_Grade', ascending=True)
+weighted_grades.columns = ['Team', 'Team_w_Value_Diff']
+weighted_grades = weighted_grades.sort_values(by = 'Team_w_Value_Diff', ascending=True)
+
+# df_team = df[['Team', 'APYM', 'Value Diff']]
+# df_team = df_team.groupby('Team').sum().reset_index()
+# print(df_team.head(16))
+
 
 df_wins = wins_export()
 
-df_final = pd.merge(df_team, df_wins, on='Team', how='left')
+df_final = pd.merge(weighted_grades, df_wins, on='Team', how='left')
 print(df_final.head())
 
 
-x = df_final['Value Diff']
+x = df_final['Team_w_Value_Diff']
 y = df_final['W']
 fig, ax = plt.subplots(figsize=(14, 9))
 slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
-line = slope * df_final['Value Diff'] + intercept
+line = slope * df_final['Team_w_Value_Diff'] + intercept
 ax.plot(x, line, color='red', linestyle='--', alpha=0.7, 
         label=f'Regression Line ($R^2$: {r_value**2:.2f})')
 ax.plot(x, line, color='red', linestyle='--', alpha=0.7, 
@@ -59,9 +60,9 @@ def add_logos(team, x_pos, y_pos, ax):
     except FileNotFoundError:
         ax.text(x_pos, y_pos, team, fontsize=9, fontweight='bold', ha='center', color='gray')
 for i, row in df_final.iterrows():
-    add_logos(row['Team'], row['Value Diff'], row['W'], ax)
+    add_logos(row['Team'], row['Team_w_Value_Diff'], row['W'], ax)
     ax.text(
-        row['Value Diff'], 
+        row['Team_w_Value_Diff'], 
         row['W'] + 0.4,          
         row['Team'],         
         fontsize=8, 
