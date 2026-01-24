@@ -109,4 +109,4 @@ def get_cleaned_data_qb():
 
 if __name__ == "__main__":
     df = get_cleaned_data_qb()
-    # print(df.head(10))
+    

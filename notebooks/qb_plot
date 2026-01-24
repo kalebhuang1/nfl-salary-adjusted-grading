@@ -21,19 +21,19 @@ df = assign_contract_tiers(df)
 df = market_data(df, ['Rookie/Cheap', 'Franchise/Elite', 'Bridge/Mid'])
 print ("Top 20 QBs by Value Difference:")
 print(df.head())
-print(df[df['Player'] == 'Deshaun Watson'])
-print(df[df['Team'] == 'NO'])
-team_value = df.groupby('Team')['Value Diff'].sum().reset_index()
-# weighted_grades = df.groupby('Team').apply(lambdax: 
-#     np.average(x['Value Diff'], weights=x['Att']) if x['Att'].sum() > 0 else x['Value Diff'].mean(),include_groups=False)
-# weighted_grades = weighted_grades.reset_index()
+
+def calculate_net_room_value(group):
+    total_att = group['Att'].sum()
+    if total_att > 0:
+        room_production_val = np.average(group['Market Value'], weights=group['Att'])
+    else:
+        room_production_val = group['Market Value'].mean()
+    total_room_cost = group['APYM'].sum()
+    return room_production_val - total_room_cost
+
+team_value = df.groupby('Team').apply(calculate_net_room_value, include_groups=False).reset_index()
 team_value.columns = ['Team', 'Team_w_Value_Diff']
 team_value = team_value.sort_values(by = 'Team_w_Value_Diff', ascending=True)
-
-# df_team = df[['Team', 'APYM', 'Value Diff']]
-# df_team = df_team.groupby('Team').sum().reset_index()
-# print(df_team.head(16))
-
 
 df_wins = wins_export()
 
@@ -43,6 +43,7 @@ print(df_final.head())
 
 x = df_final['Team_w_Value_Diff']
 y = df_final['W']
+
 fig, ax = plt.subplots(figsize=(14, 9))
 slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
 line = slope * df_final['Team_w_Value_Diff'] + intercept
