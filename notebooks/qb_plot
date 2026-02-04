@@ -7,18 +7,16 @@ from utils import *
 import statsmodels.api as sm
 
 from qb_cleaning import get_cleaned_data_qb
-from qb_grading import calculate_final_grade, assign_contract_tiers, market_data
+from qb_grading import calculate_final_grade, assign_contract_tiers, get_market_data
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', 100)
 df = get_cleaned_data_qb()
 df['Att'] = df['Att'].fillna(0)
-
 df = calculate_final_grade(df, 0)
-
-df_grades = df[['Player', 'Team', 'Final_Grade', 'Att']].copy()
 df = assign_contract_tiers(df)
-df = market_data(df, ['Rookie/Cheap', 'Franchise/Elite', 'Bridge/Mid'])
+df = get_market_data(df)
+
 print ("Top 20 QBs by Value Difference:")
 print(df.head())
 
@@ -82,9 +80,9 @@ model = sm.OLS(y, X).fit()
 print(model.summary())
 print('test')
 
-plt.title('QB Value Difference vs. Total Season Wins (2025)', fontsize=18, pad=20)
-plt.xlabel('Value Difference (Adjusted Grade vs. Salary Tier)', fontsize=13)
-plt.ylabel('Total Wins', fontsize=13)
+plt.title('QB Room Value Difference vs. Total Season Wins (2025)', fontsize=18, pad=20)
+plt.xlabel('Value Difference (Actual Salary - Market Value)', fontsize=13)
+plt.ylabel('Total Team Wins', fontsize=13)
 
 plt.xlim(x.min() - 1, x.max() + 1)
 plt.ylim(y.min() - 1, y.max() + 1)

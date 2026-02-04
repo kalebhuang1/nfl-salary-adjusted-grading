@@ -3,7 +3,7 @@ import pandas as pd
 from utils import * 
 
 pd.set_option('display.max_columns', None)
-pd.set_option('display.width', 100)
+pd.set_option('display.width', 150)
 def get_cleaned_data_qb():
     p = Path(__file__).resolve()
     base = None
@@ -29,8 +29,6 @@ def get_cleaned_data_qb():
         return
 #------------------------------------CLEANING------------------------------------------------------#
     df_contracts = clean_contract(df_contracts)
-    df_rushing = promote_first_row_to_header(df_rushing)
-    df_receiving = promote_first_row_to_header(df_receiving)
     df_passing_adv = promote_first_row_to_header(df_passing_adv)
 
     df_opp_str = pd.concat([df_opp_str_afc, df_opp_str_nfc], ignore_index=True)
@@ -42,8 +40,7 @@ def get_cleaned_data_qb():
     
 
     columns_to_clean_passing = ["G", "GS", "Cmp", "Att", "Cmp%", "Yds", "TD", "TD%", "Int", "Int%", "1D", "Succ%", "Lng", "Y/A", "AY/A", "Y/C", "Y/G", "Rate", "QBR", "Sk", "Sk%", "NY/A", "ANY/A", "4QC", "GWD"]
-    # columns_to_clean_rushing = ["G", "GS", "Att", "Yds", "TD", "1D", "Succ%", "Lng", "Y/A", "Y/G", "A/G", "Fmb"]
-    # columns_to_clean_receiving = ["G", "GS", "Tgt", "Rec", "Yds", "1D", "YBC", "YBC/R", "YAC", "YAC/R", "ADOT", "BrkTkl", "Rec/Br", "Drop", "Drop%", "Int", "Rat"]
+
 
     df_contracts = convert_team_abbreviations(df_contracts, 'Team')
     df_contracts['Player'] = df_contracts['Player'].replace('Matt Stafford', 'Matthew Stafford')
@@ -54,11 +51,8 @@ def get_cleaned_data_qb():
     df_contracts = normalize_player_names(df_contracts, 'Player')   
     df_contracts_qb = df_contracts[df_contracts['Pos'] == 'QB'].copy()
 
-    df_passing.drop(columns = ['Awards'], inplace=True, errors='ignore')
     df_passing = clean_numeric_columns(df_passing, columns_to_clean_passing)
     df_passing = normalize_player_names(df_passing, 'Player')
-    # df_rushing = clean_numeric_columns(df_rushing, columns_to_clean_rushing)
-    # df_receiving = clean_numeric_columns(df_receiving, columns_to_clean_receiving)
     
     df_qb_only = df_passing[df_passing['Pos'] == 'QB'].copy()
     passing_2_cols_to_keep = ['Player Name', 'EPA/Play', 'Pass EPA', 'Rush EPA', 'ADoT', 'Time To Throw']
@@ -73,17 +67,14 @@ def get_cleaned_data_qb():
     df_passing_adv = normalize_player_names(df_passing_adv, 'Player')
     df_qb_only['QBrec'] = df_qb_only['QBrec'].astype(str)
     df_qb_only['QBrec'] = df_qb_only['QBrec'].apply(clean_nfl_string)
-    df_rb_only = merge_dataframes(df_rushing, df_receiving, merge_col='Player')
     
     cols_to_remove_qb = ['Team', 'Pos', 'Rk', 'Age', 'G', 'Cmp', 'Yds', 'TD', 'Int', '1D', 'SkYds', 'Y/A', 'AY/A', 'NY/A', 'Y/C', 'Cmp%', 'Lng', 'Sk', 'Yds.1','4QC', 'GWD', 'Awards']
     df_qb_only = df_qb_only.drop(columns=cols_to_remove_qb, errors='ignore')
 #-------------------------------------MERGING------------------------------------------------------#
-    df_final_passing = merge_dataframes(df_contracts_qb, df_qb_only, 'Player')
-    
-    print(df_final_passing)
-    df_final_passing = merge_dataframes(df_final_passing, df_passing_2, 'Player')
-    df_final_passing = merge_dataframes(df_final_passing, df_passing_adv, 'Player')
-    df_final_passing = merge_dataframes(df_final_passing, df_opp_str, 'Team')
+    df_final_passing = pd.merge(df_contracts_qb, df_qb_only, on = 'Player', how = 'left')
+    df_final_passing = pd.merge(df_final_passing, df_passing_adv, on = 'Player', how = 'left')
+    df_final_passing = pd.merge(df_final_passing, df_passing_2, on = 'Player', how = 'left')
+    df_final_passing = pd.merge(df_final_passing, df_opp_str, on = 'Team', how = 'left')
     
     if 'Team' in df_final_passing.columns:
         df_final_passing = df_final_passing[df_final_passing['Team'] != '2TM'].copy()
@@ -109,4 +100,6 @@ def get_cleaned_data_qb():
 
 if __name__ == "__main__":
     df = get_cleaned_data_qb()
+    print(df.head(32))
+    
     

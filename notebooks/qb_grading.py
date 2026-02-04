@@ -2,6 +2,7 @@ import pandas as pd
 from utils import standardize_columns
 from qb_cleaning import get_cleaned_data_qb
 from sklearn.cluster import KMeans
+import numpy as np
 
 
 
@@ -9,88 +10,44 @@ from sklearn.cluster import KMeans
 pd.set_option('display.width', 100)
 
 #------------------------------------GRADING------------------------------------------------------#
-df = get_cleaned_data_qb()
-df['Att'] = df['Att'].fillna(0)
-
-def calculate_ramp_penalty(att, limit=250):
-    if att >= limit:
-        return 1.0
-    return att / limit
 
 def calculate_final_grade(df, att_min=0):
+    WEIGHTS = {
+        'EPA/Play': 0.275, 'ANY/A': 0.25, 'IAY/PA': 0.125, 'OnTgt%': 0.075,
+        'Succ%': 0.075, 'SoS': 0.05, 'TD%': 0.05, 'Rush EPA': 0.05,
+        'QBR': 0.025, 'Prss%': 0.05, 'Att': 0.025,
+        'Int%': -0.05, 'Bad%': -0.075, 'Sk%': -0.025
+    }
+    
     df = df[df['Att'] >= (att_min - 1e-9)].copy()
-    
-    drivers = ['ANY/A', 'EPA/Play', 'QBR', 'Succ%', 'Int%', 'Sk%', 'Att', 'Rush EPA', 'TD%', 'IAY/PA','Bad%', 'Prss%', 'OnTgt%', 'SoS']
+    drivers = list(WEIGHTS.keys())
     df[drivers] = df[drivers].fillna(0)
+    df['Att'] = df['Att'].fillna(0)
+
+    calib_mask = df['Att'] >= 150
+    calib_pool = df[calib_mask] if calib_mask.sum() >= 10 else df.nlargest(32, 'Att')
     
-    z_cols = [f"{col}_z" for col in drivers]
-    df_active = df[df['Att'] > 0].copy()
-    df_inactive = df[df['Att'] <= 0].copy()
+    stats = calib_pool[drivers].agg(['mean', 'std']).T
+    stats['std'] = stats['std'].replace(0, 1) 
+    
+    z_scores = (df[drivers] - stats['mean']) / stats['std']
+    
+    df['Composite_Z'] = z_scores.dot(pd.Series(WEIGHTS))
 
-    if not df_active.empty:
-        calibration_pool = df_active[df_active['Att'] >= 150] 
-        
-        if len(calibration_pool) < 10:
-            calibration_pool = df_active.nlargest(32, 'Att')
-
-
-        for col in drivers:
-            mu = calibration_pool[col].mean()
-            sigma = calibration_pool[col].std()
-            
-            sigma = sigma if sigma > 0 else 1.0 
-            
-            df_active[f"{col}_z"] = (df_active[col] - mu) / sigma
-
-    for col in z_cols:
-        df_inactive[col] = -3.0
-        
-    df = pd.concat([df_active, df_inactive], axis=0).reset_index(drop=True)
-
-    df['Composite_Z'] = (
-        (df['EPA/Play_z'] * 0.275) +
-        (df['ANY/A_z'] * 0.25) +
-        (df['OnTgt%_z'] * 0.075) +
-        (df['IAY/PA_z'] * 0.10) +
-        (df['SoS_z'] * 0.05) + 
-        (df['TD%_z'] * 0.05) +  
-        (df['Att_z'] * 0.025) +
-        (df['Rush EPA_z'] * 0.05) +
-        (df['Succ%_z'] * 0.075) +
-        (df['QBR_z'] * 0.05) +
-        (df['Prss%_z'] * 0.05) -    
-        (df['Int%_z'] * 0.05) -
-        (df['Bad%_z'] * 0.075) -
-        (df['Sk%_z'] * 0.025)
-    )
-
-    df['Composite_Z'] = df['Composite_Z'] * df['Att'].apply(calculate_ramp_penalty)
+    ramp = (df['Att'] / 250).clip(upper=1.0)
+    df['Composite_Z'] *= ramp
+    
+    calib_z = df.loc[calib_mask, 'Composite_Z']
+    min_z, max_z = (calib_z.min(), calib_z.max()) if not calib_z.empty else (df['Composite_Z'].min(), df['Composite_Z'].max())
+    
+    df['Final_Grade'] = ((df['Composite_Z'] - min_z) / (max_z - min_z) * 100).clip(0, 100)
+    df['Final_Grade'] = (df['Final_Grade'] * ramp).round(2)
     
     if 'GS' in df.columns:
-        df.loc[df['GS'] == 0, 'Composite_Z'] = df['Composite_Z'].min() - 1
+        df.loc[df['GS'] == 0, ['Composite_Z', 'Final_Grade']] = [df['Composite_Z'].min() - 1, 0]
 
-
-    calibration_z = df[df['Att'] >= 150]['Composite_Z']
-    if not calibration_z.empty:
-        min_z = calibration_z.min()
-        max_z = calibration_z.max()
-    else:
-        min_z = df['Composite_Z'].min()
-        max_z = df['Composite_Z'].max()
-    
-    df['Final_Grade'] = ((df['Composite_Z'] - min_z) / (max_z - min_z)) * 100
-    df['Final_Grade'] = df['Final_Grade'] * df['Att'].apply(lambda x: calculate_ramp_penalty(x, limit=250))
-    df['Final_Grade'] = df['Final_Grade'].clip(0, 100).round(2)
-    
-    if 'GS' in df.columns:
-        df.loc[df['GS'] == 0, 'Final_Grade'] = 0
-
-    df = df.sort_values(by='Final_Grade', ascending=False).reset_index(drop=True)
-    df.index = df.index + 1
-
-    return df
-
-#------------------------------------CONTRACTS------------------------------------------------------#
+    return df.sort_values(by='Final_Grade', ascending=False).reset_index(drop=True)
+#------------------------------------------------------CONTRACTS-------------------------------------------------------------------#
 def assign_contract_tiers(df):
     X = df[['APY']].values
     kmeans = KMeans(n_clusters=3, random_state=42)
@@ -117,31 +74,35 @@ def calculate_market_value(grade):
     else:
         return ((grade - threshold) / (100 - threshold)) * (starter_max - starter_min) + starter_min
 
-def market_data(df, group_col):
-    df = df[df['Contract_Tier'].isin(group_col)].copy()
-    df['Market Value'] = df['Final_Grade'].apply(calculate_market_value).round(2)
+def get_market_data(df):
+    xp = [0,   30,  40,    50,    60,    70,    85,    100]
+    fp = [1.2, 3.5, 12.0,  30.0,  42.0,  52.0,  58.0,  65.0]
+    
+    df['Market Value'] = np.interp(df['Final_Grade'], xp, fp).round(2)
     df['APYM'] = df['APY'] / 1_000_000
     df['Value Diff'] = (df['Market Value'] - df['APYM']).round(2)
     return df
+
+df = get_cleaned_data_qb()
+df['Att'] = df['Att'].fillna(0)
 df=calculate_final_grade(df, 0)
 df=assign_contract_tiers(df)
-#------------------------------------MARKET VALUE ELITE/VETS -----------------------------------------#
+df=get_market_data(df)
+#--------------------------------------------LEADERBOARDS-------------------------------------------------------------------------#
+cols = ['Player', 'Team', 'Value Diff', 'APY', 'Final_Grade', 'Contract_Tier', 'Market Value']
 
-vet_qbs_adj= market_data(df, ['Franchise/Elite', 'Bridge/Mid'])
-ovr_vet_qb_adj_leaderboard = vet_qbs_adj[['Player', 'Team', 'Value Diff', 'APY', 'Final_Grade', 'Contract_Tier', 'Market Value']].sort_values(by='Value Diff', ascending=False)
-ovr_vet_qb_adj_leaderboard = ovr_vet_qb_adj_leaderboard.reset_index(drop=True)
-ovr_vet_qb_adj_leaderboard.index = ovr_vet_qb_adj_leaderboard.index+1
+
+vet_qbs = df[df['Contract_Tier'].isin(['Franchise/Elite', 'Bridge/Mid'])].copy()
+rookie_qbs = df[df['Contract_Tier'] == 'Rookie/Cheap'].copy()
+
 print("\nOverall Leaderboard (Value Diff):")
-print(ovr_vet_qb_adj_leaderboard.head(30))
+vet_print = vet_qbs[cols].sort_values('Value Diff', ascending=False).head(30).reset_index(drop=True)
+vet_print.index = range(1, len(vet_print) + 1) 
+print(vet_print)
 
-#------------------------------------MARKET VALUE ROOKIES/CHEAP -----------------------------------------#
-rookie_qbs = market_data(df, ['Rookie/Cheap'])
-rookie_qb_leaderboard = rookie_qbs[['Player', 'Team', 'Value Diff', 'APY', 'Final_Grade', 'Contract_Tier', 'Market Value']].sort_values(by='Value Diff', ascending=False)
-rookie_qb_leaderboard = rookie_qb_leaderboard.reset_index(drop=True)
-rookie_qb_leaderboard.index = rookie_qb_leaderboard.index+1
 print("\nRookie/Cheap QB Leaderboard (Value Diff):")
-print(rookie_qb_leaderboard.head(30))
+rookie_print = rookie_qbs[cols].sort_values('Value Diff', ascending=False).head(30).reset_index(drop=True)
+rookie_print.index = range(1, len(rookie_print) + 1)
+print(rookie_print)
 
-
-df_market_master = pd.concat([vet_qbs_adj, rookie_qbs], ignore_index=True)
-df_market_master.to_csv('qb_market_data.csv', index=False)
+df.to_csv('qb_market_data.csv', index=False)
